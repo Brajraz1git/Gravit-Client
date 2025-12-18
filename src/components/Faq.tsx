@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus } from 'lucide-react';
-import DotFlood from "../components/DotFlood";
 
 interface FAQItem {
   id: number;

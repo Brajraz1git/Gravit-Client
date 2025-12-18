@@ -30,7 +30,7 @@ const TinyShootingStars: React.FC<TinyShootingStarsProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const starsRef = useRef<Star[]>([]);
   const shootingRef = useRef<ShootingStar[]>([]);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number | undefined>(undefined);
 
   // Resize canvas to parent
   useEffect(() => {
