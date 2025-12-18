@@ -1,0 +1,336 @@
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import api from '../api/apiClient';
+import Container from '../components/Container';
+import Sidebar from '../components/Sidebar';
+
+interface Booking {
+  id: number;
+  eventId: number;
+  userId: number;
+  quantity: number;
+  totalAmount: number;
+  status: string;
+  createdAt: string;
+  name: string;
+  email: string;
+  mobile?: string;
+  seats?: number[];
+  title?: string;
+  date?: string;
+  location?: string;
+  image?: string;
+}
+
+export default function UserDashboard() {
+  const { user, logout } = useAuth();
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [filterTag, setFilterTag] = useState<'all' | 'upcoming' | 'completed'>('all');
+
+  useEffect(() => {
+    const fetchBookings = async () => {
+      if (!user?.id) {
+        console.log('No user ID available');
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        console.log('Fetching bookings for user:', user.id);
+        // Use the correct endpoint for user bookings
+        const response = await api.get(`/bookings/user/${user.id}`);
+        console.log('API Response:', response.data);
+        const data = response.data.data ?? response.data;
+        console.log('Fetched bookings:', data);
+        setBookings(Array.isArray(data) ? data : []);
+      } catch (err) {
+        const error = err as { response?: { data?: unknown } };
+        console.error('Failed to load bookings:', error);
+        console.error('Error details:', error.response?.data);
+        setBookings([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user?.id) {
+      fetchBookings();
+    }
+  }, [user?.id]);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'confirmed':
+        return 'bg-green-900/50 text-green-300 border-green-700';
+      case 'pending':
+        return 'bg-yellow-900/50 text-yellow-300 border-yellow-700';
+      case 'cancelled':
+        return 'bg-red-900/50 text-red-300 border-red-700';
+      default:
+        return 'bg-purple-900/50 text-purple-300 border-purple-700';
+    }
+  };
+
+  // Filter bookings based on tag
+  const filteredBookings = bookings.filter((booking) => {
+    if (filterTag === 'all') return true;
+    
+    const eventDate = booking.date ? new Date(booking.date) : null;
+    const now = new Date();
+    
+    if (filterTag === 'upcoming') {
+      return eventDate && eventDate > now && booking.status !== 'cancelled';
+    } else if (filterTag === 'completed') {
+      return eventDate && eventDate <= now || booking.status === 'cancelled';
+    }
+    
+    return true;
+  });
+
+  return (
+    <div className="min-h-screen bg-linear-to-br from-purple-900 via-black to-purple-900 py-12 pt-24">
+      {user?.role !== 'admin' && (
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      )}
+      
+      <div className={user?.role !== 'admin' ? 'lg:ml-64' : ''}>
+        {user?.role !== 'admin' && (
+          <header className="bg-purple-900/50 backdrop-blur-lg border-b border-purple-700 fixed top-0 left-0 right-0 z-30 lg:left-64">
+            <div className="px-4 py-4 flex items-center justify-between">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden text-purple-400 hover:text-white"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <h1 className="text-xl font-bold text-white">My Dashboard</h1>
+              <button
+                onClick={logout}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition text-sm"
+              >
+                Logout
+              </button>
+            </div>
+          </header>
+        )}
+      <Container>
+        <div className="max-w-6xl mx-auto">
+          {/* User Profile Section */}
+          <div className="bg-purple-800/50 backdrop-blur-lg rounded-2xl shadow-2xl border border-purple-700 p-4 md:p-6 lg:p-8 mb-8">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-center space-x-4 md:space-x-6 w-full md:w-auto">
+                <div className="w-16 h-16 md:w-20 md:h-20 bg-linear-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center text-white text-2xl md:text-3xl font-bold shrink-0">
+                  {user?.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-white truncate">{user?.name}</h1>
+                  <p className="text-purple-400 mt-1 text-sm md:text-base truncate max-w-[200px] md:max-w-none" title={user?.email}>{user?.email}</p>
+                  <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-semibold ${
+                    user?.role === 'admin' 
+                      ? 'bg-purple-900/50 text-purple-300 border border-purple-700' 
+                      : 'bg-blue-900/50 text-blue-300 border border-blue-700'
+                  }`}>
+                    {user?.role === 'admin' ? '👑 Admin' : '👤 User'}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={logout}
+                className="w-full md:w-auto px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all font-medium"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+
+          {/* Admin Actions */}
+          {user?.role === 'admin' && (
+            <div className="bg-purple-900/30 backdrop-blur-lg rounded-2xl shadow-2xl border border-purple-700 p-4 md:p-6 mb-8">
+              <h2 className="text-lg md:text-xl font-bold text-white mb-4">Admin Actions</h2>
+              <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
+                <Link
+                  to="/admin/events"
+                  className="px-6 py-3 bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg transition-all font-medium shadow-lg text-center"
+                >
+                  Manage Events
+                </Link>
+                <Link
+                  to="/admin/events/new"
+                  className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all font-medium shadow-lg text-center"
+                >
+                  Create New Event
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Bookings Section */}
+          <div className="bg-purple-800/50 backdrop-blur-lg rounded-2xl shadow-2xl border border-purple-700 p-4 md:p-6 lg:p-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+              <h2 className="text-xl md:text-2xl font-bold text-white">My Bookings</h2>
+              <Link
+                to="/events"
+                className="w-full sm:w-auto text-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all text-sm font-medium"
+              >
+                Browse Events
+              </Link>
+            </div>
+
+            {/* Filter Tags */}
+            <div className="flex flex-wrap gap-2 mb-6">
+              <button
+                onClick={() => setFilterTag('all')}
+                className={`px-4 py-2 rounded-lg font-medium transition ${
+                  filterTag === 'all'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-purple-700 text-purple-300 hover:bg-purple-600'
+                }`}
+              >
+                All ({bookings.length})
+              </button>
+              <button
+                onClick={() => setFilterTag('upcoming')}
+                className={`px-4 py-2 rounded-lg font-medium transition ${
+                  filterTag === 'upcoming'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-purple-700 text-purple-300 hover:bg-purple-600'
+                }`}
+              >
+                Upcoming ({bookings.filter(b => {
+                  const eventDate = b.date ? new Date(b.date) : null;
+                  return eventDate && eventDate > new Date() && b.status !== 'cancelled';
+                }).length})
+              </button>
+              <button
+                onClick={() => setFilterTag('completed')}
+                className={`px-4 py-2 rounded-lg font-medium transition ${
+                  filterTag === 'completed'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-purple-700 text-purple-300 hover:bg-purple-600'
+                }`}
+              >
+                Completed ({bookings.filter(b => {
+                  const eventDate = b.date ? new Date(b.date) : null;
+                  return eventDate && eventDate <= new Date() || b.status === 'cancelled';
+                }).length})
+              </button>
+            </div>
+
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+                <p className="text-purple-400 mt-4">Loading bookings...</p>
+              </div>
+            ) : bookings.length === 0 ? (
+              <div className="text-center py-12">
+                <svg className="mx-auto h-16 w-16 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                </svg>
+                <h3 className="mt-4 text-lg font-medium text-purple-300">No bookings yet</h3>
+                <p className="mt-2 text-purple-500">Start by browsing our amazing events!</p>
+                <Link
+                  to="/events"
+                  className="mt-6 inline-block px-6 py-3 bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg transition-all font-medium shadow-lg"
+                >
+                  Browse Events
+                </Link>
+              </div>
+            ) : filteredBookings.length === 0 ? (
+              <div className="text-center py-12">
+                <svg className="mx-auto h-16 w-16 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                </svg>
+                <h3 className="mt-4 text-lg font-medium text-purple-300">
+                  No {filterTag !== 'all' ? filterTag : ''} bookings
+                </h3>
+                <p className="mt-2 text-purple-500">
+                  {filterTag !== 'all' 
+                    ? `You don't have any ${filterTag} bookings.`
+                    : 'Start by browsing our amazing events!'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredBookings.map((booking) => (
+                  <div
+                    key={booking.id}
+                    className="bg-purple-900/50 rounded-lg border border-purple-700 p-4 md:p-6 hover:border-purple-500 transition-all"
+                  >
+                    <div className="flex flex-col md:flex-row items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0 w-full">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-3">
+                          <h3 className="text-lg md:text-xl font-semibold text-white truncate">
+                            {booking.title || `Event #${booking.eventId}`}
+                          </h3>
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(booking.status)} w-fit`}>
+                            {booking.status.toUpperCase()}
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-2 text-sm text-purple-400">
+                          {booking.date && (
+                            <p className="flex items-start gap-2">
+                              <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              <span className="wrap-break-words">
+                                {new Date(booking.date).toLocaleDateString('en-US', {
+                                  weekday: 'long',
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                })}
+                              </span>
+                            </p>
+                          )}
+                          {booking.location && (
+                            <p className="flex items-start gap-2">
+                              <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              <span className="wrap-break-words">{booking.location}</span>
+                            </p>
+                          )}
+                          <p className="flex items-center gap-2">
+                            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            Tickets: {booking.quantity}
+                          </p>
+                          <p className="flex items-center gap-2">
+                            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Total: ₹{booking.totalAmount.toFixed(2)}
+                          </p>
+                          <p className="text-xs text-purple-500 wrap-break-words">
+                            Booked on {new Date(booking.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {booking.image && (
+                        <img
+                          src={booking.image}
+                          alt={booking.title}
+                          className="w-full md:w-24 h-32 md:h-24 rounded-lg object-cover"
+                        />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </Container>
+      </div>
+    </div>
+  );
+}

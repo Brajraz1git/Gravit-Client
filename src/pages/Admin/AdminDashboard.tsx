@@ -1,0 +1,269 @@
+import { useEffect, useState } from 'react';
+import { adminApi } from '../../api/apiClient';
+import Sidebar from '../../components/Sidebar';
+import { Link } from 'react-router-dom';
+
+interface AnalyticsData {
+  totalRevenue: number;
+  totalBookings: number;
+  totalEvents: number;
+  recentBookings: number;
+  eventStats: Array<{
+    title: string;
+    ticketsSold: number;
+    revenue: number;
+    availableSeats: number;
+  }>;
+  revenueByDate: Array<{
+    date: string;
+    revenue: number;
+  }>;
+}
+
+export default function AdminDashboard() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadAnalytics();
+  }, []);
+
+  async function loadAnalytics() {
+    setLoading(true);
+    setError(null);
+    try {
+      console.log('Fetching analytics from:', '/analytics/dashboard');
+      const res = await adminApi().get('/analytics/dashboard');
+      console.log('Analytics response:', res.data);
+      
+      const data = res.data.data || res.data;
+      console.log('Parsed analytics data:', data);
+      setAnalytics(data);
+    } catch (e: unknown) {
+      console.error('Failed to load analytics', e);
+      setError(e instanceof Error ? e.message : 'Failed to load analytics data');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-linear-to-br from-gray-50 to-white">
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      
+      <div className="lg:ml-64">
+        {/* Top Bar */}
+        <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
+          <div className="px-3 sm:px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden text-gray-600 hover:text-gray-900 shrink-0"
+              >
+                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <h1 className="text-base sm:text-lg md:text-2xl font-bold text-gray-900 truncate">Admin Dashboard</h1>
+            </div>
+            <Link
+              to="/"
+              className="w-full sm:w-auto text-center px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition text-xs sm:text-sm whitespace-nowrap shadow-md"
+            >
+              Back to Home
+            </Link>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="p-6 bg-gray-50">
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="text-center">
+                <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mb-4"></div>
+                <p className="text-gray-600 text-lg">Loading analytics...</p>
+              </div>
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="bg-red-50 border border-red-200 rounded-xl p-8 max-w-md">
+                <svg className="w-16 h-16 text-red-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h3 className="text-xl font-bold text-gray-900 mb-2 text-center">Error Loading Analytics</h3>
+                <p className="text-red-600 text-center mb-4">{error}</p>
+                <button
+                  onClick={loadAnalytics}
+                  className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          ) : !analytics ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="bg-white border border-gray-200 rounded-xl p-8 max-w-md text-center shadow-md">
+                <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                </svg>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">No Analytics Data</h3>
+                <p className="text-gray-600 mb-4">No analytics data available yet.</p>
+                <button
+                  onClick={loadAnalytics}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
+                >
+                  Refresh
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div className="bg-white rounded-xl p-6 shadow-md border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-gray-600 text-sm font-medium">Total Revenue</p>
+                      <p className="text-3xl font-bold text-gray-900 mt-2">
+                        ₹{analytics?.totalRevenue?.toFixed(2) || '0.00'}
+                      </p>
+                    </div>
+                    <div className="bg-blue-100 p-3 rounded-lg">
+                      <svg className="w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-6 shadow-md border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-gray-600 text-sm font-medium">Total Bookings</p>
+                      <p className="text-3xl font-bold text-gray-900 mt-2">
+                        {analytics?.totalBookings || 0}
+                      </p>
+                    </div>
+                    <div className="bg-green-100 p-3 rounded-lg">
+                      <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-6 shadow-md border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-gray-600 text-sm font-medium">Total Events</p>
+                      <p className="text-3xl font-bold text-gray-900 mt-2">
+                        {analytics?.totalEvents || 0}
+                      </p>
+                    </div>
+                    <div className="bg-purple-100 p-3 rounded-lg">
+                      <svg className="w-8 h-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-6 shadow-md border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-gray-600 text-sm font-medium">Recent Bookings</p>
+                      <p className="text-3xl font-bold text-gray-900 mt-2">
+                        {analytics?.recentBookings || 0}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Last 7 days</p>
+                    </div>
+                    <div className="bg-orange-100 p-3 rounded-lg">
+                      <svg className="w-8 h-8 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Event Statistics */}
+              <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 mb-8">
+                <h2 className="text-xl font-bold text-gray-900 mb-6">Event Performance</h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 text-gray-700 font-medium">Event</th>
+                        <th className="text-right py-3 px-4 text-gray-700 font-medium">Tickets Sold</th>
+                        <th className="text-right py-3 px-4 text-gray-700 font-medium">Available</th>
+                        <th className="text-right py-3 px-4 text-gray-700 font-medium">Revenue</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analytics?.eventStats?.map((event, idx) => (
+                        <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50 transition">
+                          <td className="py-4 px-4 text-gray-900">{event.title}</td>
+                          <td className="py-4 px-4 text-right text-blue-600 font-semibold">
+                            {event.ticketsSold}
+                          </td>
+                          <td className="py-4 px-4 text-right text-green-600">
+                            {event.availableSeats}
+                          </td>
+                          <td className="py-4 px-4 text-right text-purple-600 font-semibold">
+                            ₹{event.revenue.toFixed(2)}
+                          </td>
+                        </tr>
+                      )) || (
+                        <tr>
+                          <td colSpan={4} className="py-8 text-center text-gray-500">
+                            No event data available
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Revenue Chart (Simple Bar Chart) */}
+              {analytics?.revenueByDate && analytics.revenueByDate.length > 0 && (
+                <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
+                  <h2 className="text-xl font-bold text-gray-900 mb-6">Revenue Trend (Last 7 Days)</h2>
+                  <div className="space-y-4">
+                    {analytics.revenueByDate.map((item, idx) => {
+                      const maxRevenue = Math.max(...analytics.revenueByDate.map(d => d.revenue));
+                      const widthPercent = maxRevenue > 0 ? (item.revenue / maxRevenue) * 100 : 0;
+                      
+                      return (
+                        <div key={idx} className="flex items-center gap-4">
+                          <div className="w-24 text-sm text-gray-600">
+                            {new Date(item.date).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}
+                          </div>
+                          <div className="flex-1 bg-gray-200 rounded-full h-8 relative overflow-hidden">
+                            <div
+                              className="bg-linear-to-r from-blue-500 to-purple-500 h-full rounded-full flex items-center justify-end px-3"
+                              style={{ width: `${Math.max(widthPercent, 5)}%` }}
+                            >
+                              <span className="text-white text-sm font-semibold">
+                                ₹{item.revenue.toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
